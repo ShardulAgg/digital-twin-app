@@ -7,7 +7,10 @@ export default function DigitalTwinsDemoUI() {
   type Step = typeof steps[number];
   const [step, setStep] = useState<Step>("Choose Twins");
 
-  // Twin catalog (nicknames only in UI; include internal mapping as comments)
+  // API configuration
+  const API_BASE_URL = "http://localhost:8000";
+
+  // Twin catalog (updated to match FastAPI persona system)
   type Twin = {
     id: string;
     nickname: string; // UI label
@@ -53,10 +56,11 @@ export default function DigitalTwinsDemoUI() {
     );
   };
 
+  // Updated twins to match FastAPI persona IDs
   const twins: Twin[] = useMemo(
     () => [
       {
-        id: "sarah",
+        id: "sarah_guo",
         nickname: "The Pitch Surgeon",
         persona: "Scalpel-precise teardown, founder-friendly",
         real: "Sarah Guo",
@@ -70,7 +74,7 @@ export default function DigitalTwinsDemoUI() {
         ),
       },
       {
-        id: "alfred",
+        id: "alfred_lin",
         nickname: "The Term Sheet Ninja",
         persona: "Quiet, fast, deadly to messy decks",
         real: "Alfred Lin",
@@ -84,7 +88,7 @@ export default function DigitalTwinsDemoUI() {
         ),
       },
       {
-        id: "kanu",
+        id: "kanu_gulati",
         nickname: "The Builder's Whisperer",
         persona: "Hands-on feedback for real traction",
         real: "Kanu Gulati",
@@ -98,7 +102,7 @@ export default function DigitalTwinsDemoUI() {
         ),
       },
       {
-        id: "leigh",
+        id: "leigh_braswell",
         nickname: "The Early Signal",
         persona: "Pre-PMF radar, tastefully early",
         real: "Leigh Marie Braswell",
@@ -144,10 +148,14 @@ export default function DigitalTwinsDemoUI() {
   };
 
   // Step 3 outputs
-  type TwinOutput = { text: string; isStreaming: boolean };
+  type TwinOutput = { text: string; isStreaming: boolean; jobId?: string };
   const [outputs, setOutputs] = useState<Record<string, TwinOutput>>({});
   const [videoLoading, setVideoLoading] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
+  const [videoUrl, setVideoUrl] = useState<string>("");
+
+  // Job polling
+  const [activeJobs, setActiveJobs] = useState<Set<string>>(new Set());
 
   // History drawer
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -161,6 +169,29 @@ export default function DigitalTwinsDemoUI() {
     } catch {}
   }, []);
 
+  // Load available personas from API
+  const [availablePersonas, setAvailablePersonas] = useState<any[]>([]);
+  const [loadingPersonas, setLoadingPersonas] = useState(false);
+
+  useEffect(() => {
+    const fetchPersonas = async () => {
+      setLoadingPersonas(true);
+      try {
+        const response = await fetch(`${API_BASE_URL}/personas`);
+        if (response.ok) {
+          const data = await response.json();
+          setAvailablePersonas(data.personas || []);
+        }
+      } catch (error) {
+        console.error('Error fetching personas:', error);
+      } finally {
+        setLoadingPersonas(false);
+      }
+    };
+
+    fetchPersonas();
+  }, []);
+
   const saveSession = (session: any) => {
     try {
       const next = [session, ...sessions].slice(0, 50);
@@ -168,6 +199,80 @@ export default function DigitalTwinsDemoUI() {
       localStorage.setItem("dt_sessions", JSON.stringify(next));
     } catch {}
   };
+
+  // Job polling effect
+  useEffect(() => {
+    if (activeJobs.size === 0) return;
+
+    const pollJobs = async () => {
+      const jobsToCheck = Array.from(activeJobs);
+      
+      for (const jobId of jobsToCheck) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/job/${jobId}`);
+          if (response.ok) {
+            const jobData = await response.json();
+            
+            if (jobData.status === "completed") {
+              // Find which twin this job belongs to
+              const twinId = Object.keys(outputs).find(id => outputs[id].jobId === jobId);
+              if (twinId) {
+                const result = jobData.results?.hot_take || "Response generated successfully.";
+                
+                // Simulate streaming effect for the received text
+                const words = result.split(" ");
+                let idx = 0;
+                const int = setInterval(() => {
+                  idx++;
+                  setOutputs((prev) => ({
+                    ...prev,
+                    [twinId]: {
+                      text: words.slice(0, idx).join(" "),
+                      isStreaming: idx < words.length,
+                      jobId: jobId,
+                    },
+                  }));
+                  if (idx >= words.length) {
+                    clearInterval(int);
+                    // Remove job from active jobs when complete
+                    setActiveJobs(prev => {
+                      const newSet = new Set(prev);
+                      newSet.delete(jobId);
+                      return newSet;
+                    });
+                  }
+                }, 25);
+              }
+            } else if (jobData.status === "failed") {
+              console.error(`Job ${jobId} failed:`, jobData.error);
+              // Handle failure - show error message to user
+              const twinId = Object.keys(outputs).find(id => outputs[id].jobId === jobId);
+              if (twinId) {
+                setOutputs(prev => ({
+                  ...prev,
+                  [twinId]: {
+                    text: `Error: ${jobData.error || 'Processing failed'}`,
+                    isStreaming: false,
+                    jobId: jobId,
+                  },
+                }));
+              }
+              setActiveJobs(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(jobId);
+                return newSet;
+              });
+            }
+          }
+        } catch (error) {
+          console.error(`Error polling job ${jobId}:`, error);
+        }
+      }
+    };
+
+    const interval = setInterval(pollJobs, 1000);
+    return () => clearInterval(interval);
+  }, [activeJobs, outputs]);
 
   // Progress percentage
   const progress = useMemo(() => {
@@ -179,11 +284,46 @@ export default function DigitalTwinsDemoUI() {
   const canProceedStep1 = selectedIds.length > 0;
   const canProceedStep2 = idea.trim().length > 0;
 
+  // API status state
+  const [apiStatus, setApiStatus] = useState<'healthy' | 'unhealthy' | 'checking'>('checking');
+
+  // Health check function
+  const checkAPIHealth = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/health`);
+      if (response.ok) {
+        const data = await response.json();
+        const isHealthy = data.status === "healthy";
+        setApiStatus(isHealthy ? 'healthy' : 'unhealthy');
+        return isHealthy;
+      }
+      setApiStatus('unhealthy');
+      return false;
+    } catch (error) {
+      console.error('Health check failed:', error);
+      setApiStatus('unhealthy');
+      return false;
+    }
+  };
+
+  // Check API health on component mount
+  useEffect(() => {
+    checkAPIHealth();
+  }, []);
+
   const startStreaming = async () => {
     console.log('startStreaming called');
     const selectedTwins = twins.filter((t) => selectedIds.includes(t.id));
     console.log('Selected twins:', selectedTwins);
     console.log('Idea:', idea);
+    
+    // Check API health first
+    const isHealthy = await checkAPIHealth();
+    if (!isHealthy) {
+      console.error('API is not healthy, using fallback responses');
+      // Show error message to user
+      alert('API is currently unavailable. Using demo responses.');
+    }
     
     const base = Object.fromEntries(
       selectedTwins.map((t) => [t.id, { text: "", isStreaming: true }])
@@ -195,52 +335,55 @@ export default function DigitalTwinsDemoUI() {
     setVideoLoading(true);
 
     try {
-      const requestBody = {
-        idea: idea,
-        id: selectedIds
-      };
+      // Process each twin individually (as per FastAPI design)
+      const jobIds = new Set<string>();
       
-      console.log('Sending request to backend:', requestBody);
-      
-      // Send a single request with all selected twins
-      const response = await fetch('http://localhost:8000/generate-pitch', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      console.log('Response status:', response.status);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('Response data:', data);
-      
-      // Process the results for each twin
-      selectedTwins.forEach((twin) => {
-        const result = data.results?.[twin.id] || data[twin.id] || 
-                       `${twin.nickname}: Here's my quick read. Your premise is specific, but I'd sharpen the wedge: pick one user, one urgent pain, one repeatable moment of delight. Show traction over thesis.`;
+      for (const twin of selectedTwins) {
+        const requestBody = {
+          text: idea,
+          context: `Generate a hot take response as ${twin.nickname}`,
+          persona_id: twin.id,
+          output_filename: `job_${twin.id}_${Date.now()}`,
+          use_heygen_voice: false
+        };
         
-        console.log(`Processing result for ${twin.id}:`, result);
+        console.log(`Sending request for ${twin.id}:`, requestBody);
         
-        // Simulate streaming effect for the received text
-        const words = result.split(" ");
-        let idx = 0;
-        const int = setInterval(() => {
-          idx++;
-          setOutputs((prev) => ({
+        const response = await fetch(`${API_BASE_URL}/process-text`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        console.log(`Response status for ${twin.id}:`, response.status);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log(`Response data for ${twin.id}:`, data);
+        
+        if (data.job_id) {
+          jobIds.add(data.job_id);
+          setOutputs(prev => ({
             ...prev,
             [twin.id]: {
-              text: words.slice(0, idx).join(" "),
-              isStreaming: idx < words.length,
+              text: "",
+              isStreaming: true,
+              jobId: data.job_id,
             },
           }));
-          if (idx >= words.length) clearInterval(int);
-        }, 25);
+        }
+      }
+      
+      // Add all job IDs to active jobs for polling
+      setActiveJobs(prev => {
+        const newSet = new Set(prev);
+        jobIds.forEach(id => newSet.add(id));
+        return newSet;
       });
 
     } catch (error) {
@@ -276,6 +419,8 @@ export default function DigitalTwinsDemoUI() {
     setTimeout(() => {
       setVideoLoading(false);
       setVideoReady(true);
+      // For demo purposes, use a placeholder video
+      setVideoUrl("https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4");
     }, 10000);
   };
 
@@ -289,6 +434,58 @@ export default function DigitalTwinsDemoUI() {
       utter.volume = 1.0;
       window.speechSynthesis.speak(utter);
     } catch {}
+  };
+
+  // Quick roast function
+  const generateQuickRoast = async (topic: string, personaId: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/quick-roast`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          topic: topic,
+          persona_id: personaId,
+          output_filename: `roast_${personaId}_${Date.now()}`
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.job_id;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error generating quick roast:', error);
+      return null;
+    }
+  };
+
+  // File upload function
+  const uploadFile = async (file: File, personaId: string, context?: string) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('persona_id', personaId);
+      if (context) {
+        formData.append('context', context);
+      }
+
+      const response = await fetch(`${API_BASE_URL}/process-file`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.job_id;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      return null;
+    }
   };
 
   // Step transitions
@@ -336,12 +533,27 @@ export default function DigitalTwinsDemoUI() {
         <div className="mx-auto max-w-4xl px-4 py-3">
           <div className="flex items-center justify-between text-xs text-zinc-400">
             <span>{steps.join(" · ")}</span>
-            <button
-              onClick={() => setHistoryOpen(true)}
-              className="rounded-full border border-white/10 px-2.5 py-1 hover:bg-white/5 transition"
-            >
-              History
-            </button>
+            <div className="flex items-center gap-2">
+              {/* API Status Indicator */}
+              <div className="flex items-center gap-1">
+                <div 
+                  className={`w-2 h-2 rounded-full ${
+                    apiStatus === 'healthy' ? 'bg-green-400' : 
+                    apiStatus === 'unhealthy' ? 'bg-red-400' : 'bg-yellow-400'
+                  }`}
+                />
+                <span className="text-xs">
+                  {apiStatus === 'healthy' ? 'API Online' : 
+                   apiStatus === 'unhealthy' ? 'API Offline' : 'Checking...'}
+                </span>
+              </div>
+              <button
+                onClick={() => setHistoryOpen(true)}
+                className="rounded-full border border-white/10 px-2.5 py-1 hover:bg-white/5 transition"
+              >
+                History
+              </button>
+            </div>
           </div>
           <div className="mt-2 h-1 w-full rounded-full bg-white/10 overflow-hidden">
             <div
@@ -650,7 +862,7 @@ export default function DigitalTwinsDemoUI() {
                   className="block w-full h-auto bg-black"
                   controls
                   autoPlay
-                  src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"
+                  src={videoUrl || "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"}
                 />
               )}
             </div>

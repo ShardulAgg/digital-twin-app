@@ -1,70 +1,143 @@
-# Getting Started with Create React App
+# Digital Twin App
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A React frontend for the Digital Twin API that generates hot take responses via audio and video with multiple personas.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- **Multi-persona Selection**: Choose from various personas including Chad Goldstein, Alfred Lin, Kanu Gulati, and Leigh Braswell
+- **Real-time Processing**: Job-based processing with status polling
+- **API Integration**: Full integration with FastAPI backend
+- **Health Monitoring**: Real-time API status indicator
+- **History Management**: Save and replay previous interactions
+- **Audio/Video Support**: Generate audio and video responses
+- **File Upload**: Process audio/video files
+- **Quick Roasts**: Generate quick roasts on topics
 
-### `npm start`
+## API Integration
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+The frontend is now fully integrated with the FastAPI backend and supports:
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### Endpoints Used
 
-### `npm test`
+- `GET /health` - Health check
+- `GET /personas` - List available personas
+- `POST /process-text` - Process text input
+- `POST /quick-roast` - Generate quick roast
+- `POST /process-file` - Process uploaded files
+- `GET /job/{job_id}` - Get job status
+- `GET /download/{filename}` - Download generated files
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Key Features
 
-### `npm run build`
+1. **Job-based Processing**: All requests are processed asynchronously with job IDs
+2. **Real-time Status Polling**: Automatically polls job status and updates UI
+3. **Error Handling**: Comprehensive error handling with user-friendly messages
+4. **API Health Monitoring**: Shows real-time API status in the UI
+5. **Persona Management**: Dynamically loads available personas from the API
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Getting Started
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Prerequisites
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+- Node.js (v14 or higher)
+- FastAPI backend running on `http://localhost:8000`
 
-### `npm run eject`
+### Installation
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+1. Install dependencies:
+```bash
+npm install
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+2. Start the development server:
+```bash
+npm start
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+3. Ensure the FastAPI backend is running on `http://localhost:8000`
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### Configuration
 
-## Learn More
+The API base URL can be configured in `src/digital-twin-frontend.tsx`:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```typescript
+const API_BASE_URL = "http://localhost:8000";
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## Usage
 
-### Code Splitting
+1. **Choose Twins**: Select one or more personas to generate responses
+2. **Describe Prompt**: Enter your idea or topic for the personas to respond to
+3. **View Results**: See real-time streaming responses and generated content
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## Personas
 
-### Analyzing the Bundle Size
+The app includes several pre-configured personas:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+- **Chad Goldstein** (chad_goldstein): The Pitch Surgeon - Scalpel-precise teardown, founder-friendly
+- **Alfred Lin** (alfred_lin): The Term Sheet Ninja - Quiet, fast, deadly to messy decks
+- **Kanu Gulati** (kanu_gulati): The Builder's Whisperer - Hands-on feedback for real traction
+- **Leigh Braswell** (leigh_braswell): The Early Signal - Pre-PMF radar, tastefully early
 
-### Making a Progressive Web App
+## Technical Details
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+### State Management
 
-### Advanced Configuration
+- Uses React hooks for state management
+- Job polling with `useEffect` and `setInterval`
+- Local storage for session history
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+### API Communication
 
-### Deployment
+- RESTful API calls using `fetch`
+- FormData for file uploads
+- JSON for structured data
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+### Error Handling
 
-### `npm run build` fails to minify
+- Network error detection
+- API health monitoring
+- Graceful fallbacks for offline scenarios
+- User-friendly error messages
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## Development
+
+### File Structure
+
+```
+src/
+├── digital-twin-frontend.tsx  # Main component
+├── App.js                     # App entry point
+└── index.js                   # React entry point
+```
+
+### Key Components
+
+- `DigitalTwinsDemoUI`: Main application component
+- `TwinAvatar`: Persona avatar component
+- `StepHeader`: Step navigation header
+- `Container`: Main layout container
+
+## Troubleshooting
+
+### Common Issues
+
+1. **API Connection Failed**: Check if the FastAPI backend is running on port 8000
+2. **Jobs Not Completing**: Check the browser console for error messages
+3. **Personas Not Loading**: Verify the `/personas` endpoint is accessible
+
+### Debug Mode
+
+Enable debug logging by checking the browser console for detailed API communication logs.
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License.
