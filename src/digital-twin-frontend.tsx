@@ -74,6 +74,20 @@ export default function DigitalTwinsDemoUI() {
         ),
       },
       {
+        id: "chad_goldstein",
+        nickname: "The Scale Master",
+        persona: "Scale fast, break things, iterate faster",
+        real: "Chad Goldstein",
+        Illustration: ({ selected }) => (
+          <TwinAvatar 
+            image="/Chars/Chad.jpg"
+            colorA="#ff6b35" 
+            colorB="#1a0f0a" 
+            selected={selected} 
+          />
+        ),
+      },
+      {
         id: "alfred_lin",
         nickname: "The Term Sheet Ninja",
         persona: "Quiet, fast, deadly to messy decks",
@@ -790,7 +804,7 @@ export default function DigitalTwinsDemoUI() {
                     <t.Illustration />
                     <div>
                       <h3 className="text-white font-semibold">{t.nickname}</h3>
-                      <p className="text-xs text-zinc-400">Responding to: “{idea}”</p>
+                      <p className="text-xs text-zinc-400">Responding to: "{idea}"</p>
                     </div>
                     {/* Speaker Icon */}
                     {!outputs[t.id]?.isStreaming && outputs[t.id]?.text && (
