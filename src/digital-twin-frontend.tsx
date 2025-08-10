@@ -57,7 +57,7 @@ export default function DigitalTwinsDemoUI() {
     () => [
       {
         id: "sarah",
-        nickname: "The Pitch Surgeon",
+        nickname: "Sarah",
         persona: "Scalpel-precise teardown, founder-friendly",
         real: "Sarah Guo",
         Illustration: ({ selected }) => (
@@ -70,43 +70,15 @@ export default function DigitalTwinsDemoUI() {
         ),
       },
       {
-        id: "alfred",
-        nickname: "The Term Sheet Ninja",
-        persona: "Quiet, fast, deadly to messy decks",
-        real: "Alfred Lin",
+        id: "chad",
+        nickname: "Chad",
+        persona: "Scale fast, break things, iterate faster",
+        real: "Chad",
         Illustration: ({ selected }) => (
           <TwinAvatar 
-            image="/Chars/Alfred.jpg"
-            colorA="#00c2ff" 
-            colorB="#0b1220" 
-            selected={selected} 
-          />
-        ),
-      },
-      {
-        id: "kanu",
-        nickname: "The Builder's Whisperer",
-        persona: "Hands-on feedback for real traction",
-        real: "Kanu Gulati",
-        Illustration: ({ selected }) => (
-          <TwinAvatar 
-            image="/Chars/Kanu.jpg"
-            colorA="#ff8a65" 
-            colorB="#1a0f12" 
-            selected={selected} 
-          />
-        ),
-      },
-      {
-        id: "leigh",
-        nickname: "The Early Signal",
-        persona: "Pre-PMF radar, tastefully early",
-        real: "Leigh Marie Braswell",
-        Illustration: ({ selected }) => (
-          <TwinAvatar 
-            image="/Chars/Leigh.jpg"
-            colorA="#66ffa6" 
-            colorB="#0f1a14" 
+            image="/Chars/Chad.jpg"
+            colorA="#ff6b35" 
+            colorB="#1a0f0a" 
             selected={selected} 
           />
         ),
@@ -227,20 +199,20 @@ export default function DigitalTwinsDemoUI() {
         
         console.log(`Processing result for ${twin.id}:`, result);
         
-        // Simulate streaming effect for the received text
-        const words = result.split(" ");
+        // Simulate streaming effect for the received text - character by character
+        const chars = result.split("");
         let idx = 0;
         const int = setInterval(() => {
           idx++;
           setOutputs((prev) => ({
             ...prev,
             [twin.id]: {
-              text: words.slice(0, idx).join(" "),
-              isStreaming: idx < words.length,
+              text: chars.slice(0, idx).join(""),
+              isStreaming: idx < chars.length,
             },
           }));
-          if (idx >= words.length) clearInterval(int);
-        }, 25);
+          if (idx >= chars.length) clearInterval(int);
+        }, 15);
       });
 
     } catch (error) {
@@ -256,19 +228,19 @@ export default function DigitalTwinsDemoUI() {
       selectedTwins.forEach((twin) => {
         const fallback = `${twin.nickname}: Here's my quick read. Your premise is specific, but I'd sharpen the wedge: pick one user, one urgent pain, one repeatable moment of delight. Show traction over thesis.`;
         
-        const words = fallback.split(" ");
+        const chars = fallback.split("");
         let idx = 0;
         const int = setInterval(() => {
           idx++;
           setOutputs((prev) => ({
             ...prev,
             [twin.id]: {
-              text: words.slice(0, idx).join(" "),
-              isStreaming: idx < words.length,
+              text: chars.slice(0, idx).join(""),
+              isStreaming: idx < chars.length,
             },
           }));
-          if (idx >= words.length) clearInterval(int);
-        }, 25);
+          if (idx >= chars.length) clearInterval(int);
+        }, 15);
       });
     }
 
