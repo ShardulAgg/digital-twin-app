@@ -1,5 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
+// Extend window object for generated media URLs
+declare global {
+  interface Window {
+    generatedVideoUrl?: string;
+    generatedAudioUrl?: string;
+  }
+}
+
 // Default export a single React component for canvas preview
 export default function DigitalTwinsDemoUI() {
   // ----- Visual + Content System -----
@@ -56,7 +64,7 @@ export default function DigitalTwinsDemoUI() {
   const twins: Twin[] = useMemo(
     () => [
       {
-        id: "sarah",
+        id: "sarah_guo",
         nickname: "Sarah",
         persona: "Scalpel-precise teardown, founder-friendly",
         real: "Sarah Guo",
@@ -70,7 +78,7 @@ export default function DigitalTwinsDemoUI() {
         ),
       },
       {
-        id: "chad",
+        id: "chad_goldstein",
         nickname: "Chad",
         persona: "Scale fast, break things, iterate faster",
         real: "Chad",
@@ -192,15 +200,15 @@ export default function DigitalTwinsDemoUI() {
       const data = await response.json();
       console.log('Response data:', data);
       
-      // Process the results for each twin
+      // Use the output_text from the response
+      const outputText = data.output_text || "Nice energy, crisp demo, real problem. The a-eye assist is useful, not magical. But the moat is a puddle, I can step over it in Louboutins. Your market math reads like science fiction, and pricing is vibes. I am intrigued, bring retention and revenue, not adjectives.";
+      
+      // Process the result for each twin (using same text for now)
       selectedTwins.forEach((twin) => {
-        const result = data.results?.[twin.id] || data[twin.id] || 
-                       `${twin.nickname}: Here's my quick read. Your premise is specific, but I'd sharpen the wedge: pick one user, one urgent pain, one repeatable moment of delight. Show traction over thesis.`;
-        
-        console.log(`Processing result for ${twin.id}:`, result);
+        console.log(`Processing result for ${twin.id}:`, outputText);
         
         // Simulate streaming effect for the received text - character by character
-        const chars = result.split("");
+        const chars = outputText.split("");
         let idx = 0;
         const int = setInterval(() => {
           idx++;
@@ -214,6 +222,15 @@ export default function DigitalTwinsDemoUI() {
           if (idx >= chars.length) clearInterval(int);
         }, 15);
       });
+      
+      // Store video and audio URLs from response
+      if (data.output_video) {
+        // Will use this URL later for the video element
+        window.generatedVideoUrl = `http://localhost:8000${data.output_video}`;
+      }
+      if (data.output_audio) {
+        window.generatedAudioUrl = `http://localhost:8000${data.output_audio}`;
+      }
 
     } catch (error) {
       console.error('Error in startStreaming - Full error:', error);
@@ -251,15 +268,22 @@ export default function DigitalTwinsDemoUI() {
     }, 10000);
   };
 
-  // Read aloud (Web Speech API)
+  // Read aloud (Web Speech API or generated audio)
   const speak = (nickname: string, text: string) => {
     try {
-      window.speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance(text.replace(/^.*?:\s*/, ""));
-      utter.pitch = 1.05;
-      utter.rate = 1.0;
-      utter.volume = 1.0;
-      window.speechSynthesis.speak(utter);
+      // If we have generated audio, play that instead
+      if (window.generatedAudioUrl) {
+        const audio = new Audio(window.generatedAudioUrl);
+        audio.play();
+      } else {
+        // Fallback to Web Speech API
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(text.replace(/^.*?:\s*/, ""));
+        utter.pitch = 1.05;
+        utter.rate = 1.0;
+        utter.volume = 1.0;
+        window.speechSynthesis.speak(utter);
+      }
     } catch {}
   };
 
@@ -622,7 +646,7 @@ export default function DigitalTwinsDemoUI() {
                   className="block w-full h-auto bg-black"
                   controls
                   autoPlay
-                  src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"
+                  src={window.generatedVideoUrl || "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"}
                 />
               )}
             </div>
