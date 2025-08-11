@@ -1,5 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
+// Extend window object for generated media URLs^M
+declare global {
+  interface Window {
+    generatedVideoUrl?: string;
+    generatedAudioUrl?: string;
+  }
+}
+
 // Default export a single React component for canvas preview
 export default function DigitalTwinsDemoUI() {
   // ----- Visual + Content System -----
@@ -429,6 +437,16 @@ export default function DigitalTwinsDemoUI() {
       });
     }
 
+    // Store video and audio URLs from response
+    if (data.output_video) {
+      if (data.output_video) {
+        // Will use this URL later for the video element
+        window.generatedVideoUrl = `http://localhost:8000${data.output_video}`;
+      }
+      if (data.output_audio) {
+        window.generatedAudioUrl = `http://localhost:8000${data.output_audio}`;
+      }
+
     // Show video after responses are done
     setTimeout(() => {
       setVideoLoading(false);
@@ -438,15 +456,22 @@ export default function DigitalTwinsDemoUI() {
     }, 10000);
   };
 
-  // Read aloud (Web Speech API)
+  // Read aloud (Web Speech API or generated audio)
   const speak = (nickname: string, text: string) => {
     try {
-      window.speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance(text.replace(/^.*?:\s*/, ""));
-      utter.pitch = 1.05;
-      utter.rate = 1.0;
-      utter.volume = 1.0;
-      window.speechSynthesis.speak(utter);
+      // If we have generated audio, play that instead
+      if (window.generatedAudioUrl) {
+        const audio = new Audio(window.generatedAudioUrl);
+        audio.play();
+      } else {
+        // Fallback to Web Speech API
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(text.replace(/^.*?:\s*/, ""));
+        utter.pitch = 1.05;
+        utter.rate = 1.0;
+        utter.volume = 1.0;
+        window.speechSynthesis.speak(utter);
+      }
     } catch {}
   };
 
@@ -876,7 +901,7 @@ export default function DigitalTwinsDemoUI() {
                   className="block w-full h-auto bg-black"
                   controls
                   autoPlay
-                  src={videoUrl || "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"}
+                  src={window.generatedVideoUrl || "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"}
                 />
               )}
             </div>
