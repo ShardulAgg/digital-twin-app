@@ -225,6 +225,23 @@ export default function DigitalTwinsDemoUI() {
               if (twinId) {
                 const result = jobData.results?.hot_take || "Response generated successfully.";
                 
+                // Store video and audio URLs from response if available
+                if (jobData.results?.output_video) {
+                  setVideoUrl(`${API_BASE_URL}${jobData.results.output_video}`);
+                  setVideoLoading(false);
+                  setVideoReady(true);
+                }
+                if (jobData.results?.output_audio) {
+                  window.generatedAudioUrl = `${API_BASE_URL}${jobData.results.output_audio}`;
+                }
+
+                // Remove job from active jobs immediately when completed
+                setActiveJobs(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete(jobId);
+                  return newSet;
+                });
+
                 // Simulate streaming effect for the received text - character by character
                 const chars = result.split("");
                 let idx = 0;
@@ -240,12 +257,6 @@ export default function DigitalTwinsDemoUI() {
                   }));
                   if (idx >= chars.length) {
                     clearInterval(int);
-                    // Remove job from active jobs when complete
-                    setActiveJobs(prev => {
-                      const newSet = new Set(prev);
-                      newSet.delete(jobId);
-                      return newSet;
-                    });
                   }
                 }, 15);
               }
@@ -272,6 +283,12 @@ export default function DigitalTwinsDemoUI() {
           }
         } catch (error) {
           console.error(`Error polling job ${jobId}:`, error);
+          // Remove failed job from active jobs
+          setActiveJobs(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(jobId);
+            return newSet;
+          });
         }
       }
     };
@@ -372,6 +389,16 @@ export default function DigitalTwinsDemoUI() {
             },
           }));
         }
+        
+        // Store video and audio URLs from response if available
+        if (data.output_video) {
+          setVideoUrl(`${API_BASE_URL}${data.output_video}`);
+          setVideoLoading(false);
+          setVideoReady(true);
+          }
+        if (data.output_audio) {
+          window.generatedAudioUrl = `${API_BASE_URL}${data.output_audio}`;
+        }
       }
       
       // Add all job IDs to active jobs for polling
@@ -408,14 +435,6 @@ export default function DigitalTwinsDemoUI() {
         }, 15);
       });
     }
-
-    // Show video after responses are done
-    setTimeout(() => {
-      setVideoLoading(false);
-      setVideoReady(true);
-      // For demo purposes, use a placeholder video
-      setVideoUrl("https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4");
-    }, 10000);
   };
   // Read aloud (Web Speech API or generated audio)
   const speak = (nickname: string, text: string) => {
@@ -840,13 +859,18 @@ export default function DigitalTwinsDemoUI() {
                   <div className="text-zinc-400 text-sm">Preparing video…</div>
                 </div>
               )}
-              {videoReady && (
+              {videoReady && videoUrl && (
                 <video
                   className="block w-full h-auto bg-black"
                   controls
                   autoPlay
-                  src={window.generatedVideoUrl || "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"}
+                  src={videoUrl}
                 />
+              )}
+              {videoReady && !videoUrl && (
+                <div className="grid min-h-[220px] place-items-center bg-zinc-900">
+                  <div className="text-zinc-400 text-sm">No video generated</div>
+                </div>
               )}
             </div>
           </div>
