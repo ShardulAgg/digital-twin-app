@@ -60,82 +60,70 @@ export default function DigitalTwinsDemoUI() {
       </div>
     );
   };
-  // Updated twins to match FastAPI persona IDs
-  const twins: Twin[] = useMemo(
-    () => [
-      {
-        id: "sarah_guo",
-        nickname: "Sarah",
-        persona: "Scalpel-precise teardown, founder-friendly",
-        real: "Sarah Guo",
-        Illustration: ({ selected }) => (
-          <TwinAvatar 
-            image="/Chars/Sarah.jpg"
-            colorA="#7c4dff" 
-            colorB="#12121a" 
-            selected={selected} 
-          />
-        ),
-      },
-      {
-        id: "chad_goldstein",
-        nickname: "Chad",
-        persona: "Scale fast, break things, iterate faster",
-        real: "Chad Goldstein",
-        Illustration: ({ selected }) => (
-          <TwinAvatar 
-            image="/Chars/Chad.jpg"
-            colorA="#ff6b35" 
-            colorB="#1a0f0a" 
-            selected={selected} 
-          />
-        ),
-      },
-      {
-        id: "alfred_lin",
-        nickname: "The Term Sheet Ninja",
-        persona: "Quiet, fast, deadly to messy decks",
-        real: "Alfred Lin",
-        Illustration: ({ selected }) => (
-          <TwinAvatar 
-            image="/Chars/Alfred.jpg"
-            colorA="#00c2ff" 
-            colorB="#0b1220" 
-            selected={selected} 
-          />
-        ),
-      },
-      {
-        id: "kanu_gulati",
-        nickname: "The Builder's Whisperer",
-        persona: "Hands-on feedback for real traction",
-        real: "Kanu Gulati",
-        Illustration: ({ selected }) => (
-          <TwinAvatar 
-            image="/Chars/Kanu.jpg"
-            colorA="#ff8a65" 
-            colorB="#1a0f12" 
-            selected={selected} 
-          />
-        ),
-      },
-      {
-        id: "leigh_braswell",
-        nickname: "The Early Signal",
-        persona: "Pre-PMF radar, tastefully early",
-        real: "Leigh Marie Braswell",
-        Illustration: ({ selected }) => (
-          <TwinAvatar 
-            image="/Chars/Leigh.jpg"
-            colorA="#66ffa6" 
-            colorB="#0f1a14" 
-            selected={selected} 
-          />
-        ),
-      },
-    ],
-    []
-  );
+  // Dynamic personas from backend
+  const [personas, setPersonas] = useState<Twin[]>([]);
+  const [loadingPersonas, setLoadingPersonas] = useState(true);
+  const [personasError, setPersonasError] = useState<string | null>(null);
+
+  // Fetch personas from backend
+  useEffect(() => {
+    const fetchPersonas = async () => {
+      try {
+        setLoadingPersonas(true);
+        setPersonasError(null);
+        
+        const response = await fetch(`${API_BASE_URL}/personas`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch personas: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const backendPersonas = data.personas || [];
+        
+        // Transform backend personas to frontend Twin format
+        const transformedPersonas: Twin[] = backendPersonas.map((persona: any) => {
+          // Use backend-provided data with fallbacks
+          const nickname = persona.nickname || persona.name.split(' ')[0];
+          const colorA = persona.color_a || '#00c2ff';
+          const colorB = persona.color_b || '#0b1220';
+          
+          // Use description if available, otherwise use bio, otherwise default
+          const personaDescription = persona.description || persona.bio || "AI-powered feedback and insights";
+          
+          return {
+            id: persona.id,
+            nickname: nickname,
+            persona: personaDescription,
+            real: persona.name,
+            Illustration: ({ selected }: { selected?: boolean }) => (
+              <TwinAvatar 
+                image={persona.has_image ? `${API_BASE_URL}/personas/${persona.id}/image` : undefined}
+                colorA={colorA}
+                colorB={colorB}
+                icon={persona.has_image ? undefined : "🤖"}
+                selected={selected} 
+              />
+            ),
+          };
+        });
+        
+        setPersonas(transformedPersonas);
+      } catch (error) {
+        console.error('Error fetching personas:', error);
+        setPersonasError(error instanceof Error ? error.message : 'Failed to load personas');
+        
+        // Fallback to empty array if API fails
+        setPersonas([]);
+      } finally {
+        setLoadingPersonas(false);
+      }
+    };
+    
+    fetchPersonas();
+  }, [API_BASE_URL]);
+
+  // Use personas as twins (for backward compatibility)
+  const twins = personas;
   // Selection state
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const selectTwin = (id: string) => {
@@ -209,26 +197,8 @@ export default function DigitalTwinsDemoUI() {
       if (raw) setSessions(JSON.parse(raw));
     } catch {}
   }, []);
-  // Load available personas from API
+  // Load available personas from API (legacy - keeping for compatibility)
   const [availablePersonas, setAvailablePersonas] = useState<any[]>([]);
-  const [loadingPersonas, setLoadingPersonas] = useState(false);
-  useEffect(() => {
-    const fetchPersonas = async () => {
-      setLoadingPersonas(true);
-      try {
-        const response = await fetch(`${API_BASE_URL}/personas`);
-        if (response.ok) {
-          const data = await response.json();
-          setAvailablePersonas(data.personas || []);
-        }
-      } catch (error) {
-        console.error('Error fetching personas:', error);
-      } finally {
-        setLoadingPersonas(false);
-      }
-    };
-    fetchPersonas();
-  }, []);
   const saveSession = (session: any) => {
     try {
       const next = [session, ...sessions].slice(0, 50);
