@@ -6,6 +6,7 @@ app = "digital-twin-frontend"
 primary_region = "sjc"
 
 [build]
+  builder = "heroku/builder:22"
 
 [http_service]
   internal_port = 8080
@@ -24,11 +25,6 @@ primary_region = "sjc"
     port = 443
     handlers = ["tls", "http"]
 
-  [[http_service.concurrency]]
-    type = "connections"
-    hard_limit = 25
-    soft_limit = 20
-
   [[http_service.checks]]
     grace_period = "10s"
     interval = "30s"
@@ -39,11 +35,11 @@ primary_region = "sjc"
     timeout = "5s"
 
 [machine]
-  memory = "256mb"
+  memory = "1024mb"
   cpu_kind = "shared"
   cpus = 1
 
 [[vm]]
   cpu_kind = "shared"
   cpus = 1
-  memory_mb = 256
+  memory_mb = 1024
