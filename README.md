@@ -58,11 +58,21 @@ npm start
 
 ### Configuration
 
-The API base URL can be configured in `src/digital-twin-frontend.tsx`:
+The API base URL is configured via environment variables:
 
-```typescript
-const API_BASE_URL = "http://localhost:8000";
+1. **Local Development**: Create a `.env` file:
+```bash
+cp env.example .env
+# Edit .env and set REACT_APP_API_BASE_URL=http://localhost:8000
 ```
+
+2. **Production**: Set the environment variable in your deployment platform:
+```bash
+REACT_APP_API_BASE_URL=https://your-backend-app.fly.dev
+```
+
+**Environment Variables:**
+- `REACT_APP_API_BASE_URL`: The URL of your FastAPI backend
 
 ## Usage
 
@@ -129,6 +139,36 @@ src/
 ### Debug Mode
 
 Enable debug logging by checking the browser console for detailed API communication logs.
+
+## Deployment
+
+### Fly.io Deployment
+
+1. **Build the app**:
+```bash
+npm run build
+```
+
+2. **Set environment variables** in Fly.io:
+```bash
+fly secrets set REACT_APP_API_BASE_URL=https://your-backend-app.fly.dev
+```
+
+3. **Deploy**:
+```bash
+fly deploy
+```
+
+### Environment Variables for Production
+
+- `REACT_APP_API_BASE_URL`: Must point to your deployed backend URL
+- Example: `https://digital-twin-backend.fly.dev`
+
+### Important Notes
+
+- The frontend and backend are deployed as separate services
+- CORS must be configured on the backend to allow requests from the frontend domain
+- Environment variables must be set before building the app
 
 ## Contributing
 

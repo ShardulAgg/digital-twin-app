@@ -15,7 +15,7 @@ export default function DigitalTwinsDemoUI() {
   type Step = typeof steps[number];
   const [step, setStep] = useState<Step>("Choose Twins");
   // API configuration
-  const API_BASE_URL = "http://localhost:8000";
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "http://localhost:8000";
   // Twin catalog (updated to match FastAPI persona system)
   type Twin = {
     id: string;
