@@ -138,10 +138,13 @@ export default function DigitalTwinsDemoUI() {
   );
   // Selection state
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const toggleTwin = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+  const selectTwin = (id: string) => {
+    setSelectedIds([id]);
+    // Automatically advance to next step
+    setTimeout(() => {
+      setStep("Describe Prompt");
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }, 100);
   };
   // Step 2 input
   const [idea, setIdea] = useState("");
@@ -165,13 +168,39 @@ export default function DigitalTwinsDemoUI() {
   // Step 3 outputs
   type TwinOutput = { text: string; isStreaming: boolean; jobId?: string };
   const [outputs, setOutputs] = useState<Record<string, TwinOutput>>({});
+  
+  // History types and state
+  type HistoryItem = {
+    job_id: string;
+    created_at: string;
+    status: string;
+    persona_id: string;
+    persona_name: string;
+    input_text?: string;
+    input_file?: string;
+    context?: string;
+    results?: any;
+    error?: string;
+    step?: string;
+  };
+  
+  type HistoryResponse = {
+    items: HistoryItem[];
+    total: number;
+    page: number;
+    per_page: number;
+  };
+  
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyTotal, setHistoryTotal] = useState(0);
+
   const [videoLoading, setVideoLoading] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string>("");
   // Job polling
   const [activeJobs, setActiveJobs] = useState<Set<string>>(new Set());
-  // History drawer
-  const [historyOpen, setHistoryOpen] = useState(false);
   const [sessions, setSessions] = useState<any[]>([]);
   // Load sessions
   useEffect(() => {
@@ -301,7 +330,7 @@ export default function DigitalTwinsDemoUI() {
     return ((idx + 1) / steps.length) * 100;
   }, [step]);
   // Handle Next
-  const canProceedStep1 = selectedIds.length > 0;
+  const canProceedStep1 = selectedIds.length === 1;
   const canProceedStep2 = idea.trim().length > 0;
   // API status state
   const [apiStatus, setApiStatus] = useState<'healthy' | 'unhealthy' | 'checking'>('checking');
@@ -327,6 +356,43 @@ export default function DigitalTwinsDemoUI() {
   useEffect(() => {
     checkAPIHealth();
   }, []);
+  
+  // Load history on component mount
+  useEffect(() => {
+    fetchHistory(1);
+  }, []);
+  
+
+  
+  // Function to fetch history
+  const fetchHistory = async (page: number = 1, personaId?: string) => {
+    try {
+      setHistoryLoading(true);
+      const params = new URLSearchParams({
+        page: page.toString(),
+        per_page: '20',
+        days: '30'
+      });
+      
+      if (personaId) {
+        params.append('persona_id', personaId);
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/history?${params}`);
+      if (response.ok) {
+        const data: HistoryResponse = await response.json();
+        setHistory(data.items);
+        setHistoryTotal(data.total);
+        setHistoryPage(data.page);
+      } else {
+        console.error('Failed to fetch history:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error fetching history:', error);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
   const startStreaming = async () => {
     console.log('startStreaming called');
     const selectedTwins = twins.filter((t) => selectedIds.includes(t.id));
@@ -503,10 +569,7 @@ export default function DigitalTwinsDemoUI() {
   };
   // Step transitions
   const goNext = () => {
-    if (step === "Choose Twins" && canProceedStep1) {
-      setStep("Describe Prompt");
-      setTimeout(() => inputRef.current?.focus(), 50);
-    } else if (step === "Describe Prompt" && canProceedStep2) {
+    if (step === "Describe Prompt" && canProceedStep2) {
       setStep("Results");
       startStreaming();
       // Save session stub
@@ -556,12 +619,7 @@ export default function DigitalTwinsDemoUI() {
                    apiStatus === 'unhealthy' ? 'API Offline' : 'Checking...'}
                 </span>
               </div>
-              <button
-                onClick={() => setHistoryOpen(true)}
-                className="rounded-full border border-white/10 px-2.5 py-1 hover:bg-white/5 transition"
-              >
-                History
-              </button>
+
             </div>
           </div>
           <div className="mt-2 h-1 w-full rounded-full bg-white/10 overflow-hidden">
@@ -578,85 +636,217 @@ export default function DigitalTwinsDemoUI() {
           {children}
         </div>
       </main>
-      {/* Footer */}
-      <footer className="mx-auto max-w-4xl px-4 pb-10 -mt-4 text-xs text-zinc-500">
-        <button
-          onClick={() => setHistoryOpen(true)}
-          className="underline decoration-dotted underline-offset-4 hover:text-zinc-300"
-        >
-          Previous Interactions
-        </button>
-      </footer>
-      {/* History Drawer */}
-      {historyOpen && (
-        <div className="fixed inset-0 z-30">
-          <div
-            className="absolute inset-0 bg-black/60"
-            onClick={() => setHistoryOpen(false)}
-            aria-hidden
-          />
-          <aside className="absolute right-0 top-0 h-full w-full max-w-md bg-[#0f0f14] border-l border-white/10 shadow-2xl">
-            <div className="flex items-center justify-between p-4 border-b border-white/10">
-              <h2 className="text-sm font-medium text-white">Previous Interactions</h2>
+      {/* History Section */}
+      <div className="mx-auto max-w-4xl px-4 py-8">
+        <div className="rounded-2xl bg-white/5 p-6 md:p-8 shadow-[0_10px_40px_rgba(0,0,0,0.35)] border border-white/10">
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-white">Recent Activity</h2>
+            <p className="text-sm text-zinc-400 mt-1">Your past queries and responses</p>
+          </div>
+          
+          {/* History Controls */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
               <button
-                onClick={() => setHistoryOpen(false)}
-                className="rounded-md border border-white/10 px-2 py-1 text-xs hover:bg-white/5"
-                aria-label="Close history"
+                onClick={() => fetchHistory(1)}
+                className="rounded-xl border border-white/10 px-4 py-2 text-sm text-zinc-200 hover:bg-white/5"
+                disabled={historyLoading}
               >
-                Close
+                {historyLoading ? 'Loading...' : 'Refresh'}
+              </button>
+              <select
+                onChange={(e) => {
+                  const personaId = e.target.value;
+                  fetchHistory(1, personaId || undefined);
+                }}
+                className="rounded-xl border border-white/10 px-4 py-2 text-sm text-zinc-200 bg-zinc-900"
+              >
+                <option value="">All Personas</option>
+                {twins.map(twin => (
+                  <option key={twin.id} value={twin.id}>{twin.nickname}</option>
+                ))}
+              </select>
+            </div>
+            <div className="text-sm text-zinc-400">
+              {historyTotal} total items
+            </div>
+          </div>
+          
+          {/* History List */}
+          <div className="space-y-4">
+            {historyLoading ? (
+              <div className="text-center py-8 text-zinc-400">Loading history...</div>
+            ) : history.length === 0 ? (
+              <div className="text-center py-8 text-zinc-400">No history found</div>
+            ) : (
+              history.map((item) => (
+                <div
+                  key={item.job_id}
+                  className="rounded-2xl border border-white/10 p-4 space-y-3"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full overflow-hidden">
+                        {(() => {
+                          const twin = twins.find(t => t.id === item.persona_id);
+                          if (twin && twin.id === "sarah_guo") {
+                            return <img src="/Chars/Sarah.jpg" alt="" className="w-full h-full object-cover" />;
+                          } else if (twin && twin.id === "chad_goldstein") {
+                            return <img src="/Chars/Chad.jpg" alt="" className="w-full h-full object-cover" />;
+                          } else if (twin && twin.id === "alfred_lin") {
+                            return <img src="/Chars/Alfred.jpg" alt="" className="w-full h-full object-cover" />;
+                          } else if (twin && twin.id === "kanu_gulati") {
+                            return <img src="/Chars/Kanu.jpg" alt="" className="w-full h-full object-cover" />;
+                          } else if (twin && twin.id === "leigh_braswell") {
+                            return <img src="/Chars/Leigh.jpg" alt="" className="w-full h-full object-cover" />;
+                          }
+                          return (
+                            <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center">
+                              <span className="text-xs font-medium text-zinc-200">
+                                {item.persona_name.charAt(0)}
+                              </span>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                      <div>
+                        <div className="font-medium text-zinc-200 text-sm">{item.persona_name}</div>
+                        <div className="text-xs text-zinc-400">
+                          {new Date(item.created_at + 'Z').toLocaleString(undefined, {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            timeZoneName: 'short'
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      item.status === 'completed' ? 'bg-green-500/20 text-green-400' :
+                      item.status === 'failed' ? 'bg-red-500/20 text-red-400' :
+                      'bg-yellow-500/20 text-yellow-400'
+                    }`}>
+                      {item.status}
+                    </div>
+                  </div>
+                  
+                  {/* Input */}
+                  {(item.input_text || item.input_file) && (
+                    <div>
+                      <div className="text-xs font-medium text-zinc-300 mb-1">Input:</div>
+                      <div className="text-xs text-zinc-400 bg-zinc-900/50 rounded-lg p-2">
+                        {item.input_file && (
+                          <div className="mb-1">
+                            <span className="text-zinc-500">File:</span> {item.input_file}
+                          </div>
+                        )}
+                        {item.input_text && (
+                          <div>
+                            <span className="text-zinc-500">Text:</span> {item.input_text}
+                          </div>
+                        )}
+                        {item.context && (
+                          <div className="mt-1">
+                            <span className="text-zinc-500">Context:</span> {item.context}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Results */}
+                  {item.status === 'completed' && item.results && (
+                    <div>
+                      <div className="text-xs font-medium text-zinc-300 mb-1">Results:</div>
+                      <div className="text-xs text-zinc-400 bg-zinc-900/50 rounded-lg p-2 space-y-1">
+                        {item.results.hot_take && (
+                          <div>
+                            <span className="text-zinc-500">Response:</span> {item.results.hot_take}
+                          </div>
+                        )}
+                        {item.results.output_video && (
+                          <div>
+                            <span className="text-zinc-500">Video:</span> 
+                            <button
+                              onClick={() => {
+                                // Convert download URL to stream URL
+                                const downloadUrl = item.results.output_video;
+                                const filename = downloadUrl.split('/').pop();
+                                const streamUrl = `${API_BASE_URL}/stream/${filename}`;
+                                window.open(streamUrl, '_blank');
+                              }}
+                              className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 ml-1"
+                            >
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z"/>
+                              </svg>
+                              Play
+                            </button>
+                          </div>
+                        )}
+                        {item.results.output_audio && (
+                          <div>
+                            <span className="text-zinc-500">Audio:</span> 
+                            <a 
+                              href={`${API_BASE_URL}${item.results.output_audio}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-400 hover:text-blue-300 ml-1"
+                            >
+                              Download
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Error */}
+                  {item.status === 'failed' && item.error && (
+                    <div>
+                      <div className="text-xs font-medium text-zinc-300 mb-1">Error:</div>
+                      <div className="text-xs text-red-400 bg-red-500/10 rounded-lg p-2">
+                        {item.error}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+          
+          {/* Pagination */}
+          {historyTotal > 20 && (
+            <div className="flex items-center justify-center gap-2 mt-6">
+              <button
+                onClick={() => fetchHistory(historyPage - 1)}
+                disabled={historyPage <= 1 || historyLoading}
+                className="rounded-xl border border-white/10 px-3 py-1 text-xs text-zinc-200 hover:bg-white/5 disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="text-xs text-zinc-400">
+                Page {historyPage} of {Math.ceil(historyTotal / 20)}
+              </span>
+              <button
+                onClick={() => fetchHistory(historyPage + 1)}
+                disabled={historyPage >= Math.ceil(historyTotal / 20) || historyLoading}
+                className="rounded-xl border border-white/10 px-3 py-1 text-xs text-zinc-200 hover:bg-white/5 disabled:opacity-50"
+              >
+                Next
               </button>
             </div>
-            <div className="p-4 space-y-3 overflow-y-auto h-[calc(100%-56px)]">
-              {sessions.length === 0 && (
-                <p className="text-zinc-400 text-sm">No history yet.</p>
-              )}
-              {sessions.map((s, i) => (
-                <div key={i} className="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <div className="flex items-center justify-between text-xs text-zinc-400">
-                    <span>{new Date(s.createdAt).toLocaleString()}</span>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {(s.selectedNicknames || []).map((n: string, idx: number) => (
-                      <span
-                        key={idx}
-                        className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-zinc-200"
-                      >
-                        {n}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="mt-2 text-sm text-zinc-200 line-clamp-2">{s.promptText}</p>
-                  <div className="mt-2 flex gap-2 text-xs">
-                    <button
-                      className="rounded-md border border-white/10 px-2 py-1 hover:bg-white/5"
-                      onClick={() => {
-                        // Load minimal session (step 3 view)
-                        setSelectedIds(
-                          twins
-                            .filter((t) => (s.selectedNicknames || []).includes(t.nickname))
-                            .map((t) => t.id)
-                        );
-                        setIdea(s.promptText || "");
-                        setStep("Results");
-                        startStreaming();
-                        setHistoryOpen(false);
-                      }}
-                    >
-                      View
-                    </button>
-                    <button
-                      className="rounded-md border border-white/10 px-2 py-1 hover:bg-white/5"
-                      onClick={() => navigator.clipboard.writeText(s.promptText || "")}
-                    >
-                      Copy text
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </aside>
+          )}
         </div>
-      )}
+      </div>
+      
+      {/* Footer */}
+      <footer className="mx-auto max-w-4xl px-4 pb-10 -mt-4 text-xs text-zinc-400">
+        <p>Digital Twin AI - Get feedback from AI personas</p>
+      </footer>
+
     </div>
   );
   // Add Tailwind utility for shimmer
@@ -672,8 +862,8 @@ export default function DigitalTwinsDemoUI() {
       {step === "Choose Twins" && (
         <div>
           <StepHeader
-            title="Whose brains do you want to borrow?"
-            subtitle="Pick one or more. Multi-select is encouraged."
+            title="Whose brain do you want to borrow?"
+            subtitle="Pick one persona to get feedback from."
           />
           <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6" role="list">
             {twins.map((t) => {
@@ -681,7 +871,7 @@ export default function DigitalTwinsDemoUI() {
               return (
                 <li key={t.id}>
                   <button
-                    onClick={() => toggleTwin(t.id)}
+                    onClick={() => selectTwin(t.id)}
                     className={`group relative w-full rounded-2xl border p-4 text-left transition duration-200 focus:outline-none focus:ring-2 focus:ring-violet-400/60 ${
                       selected
                         ? "border-violet-400/50 bg-white/[0.08] shadow-[0_8px_30px_rgba(88,28,135,0.35)]"
@@ -716,18 +906,7 @@ export default function DigitalTwinsDemoUI() {
               );
             })}
           </ul>
-          <div className="mt-6 flex items-center justify-between">
-            <div className="text-xs text-zinc-400">Multi-select supported</div>
-            <div className="flex gap-2">
-              <button
-                className="rounded-xl border border-white/10 px-4 py-2 text-sm text-zinc-200 hover:bg-white/5 disabled:opacity-40"
-                disabled={!canProceedStep1}
-                onClick={goNext}
-              >
-                Next
-              </button>
-            </div>
-          </div>
+
         </div>
       )}
       {step === "Describe Prompt" && (
@@ -893,6 +1072,10 @@ export default function DigitalTwinsDemoUI() {
           </div>
         </div>
       )}
+      
+
+      
+
     </Container>
   );
 }
