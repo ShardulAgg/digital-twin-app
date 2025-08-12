@@ -255,12 +255,20 @@ export default function DigitalTwinsDemoUI() {
                 const result = jobData.results?.hot_take || "Response generated successfully.";
                 
                 // Store video and audio URLs from response if available
-                if (jobData.results?.output_video) {
+                if (jobData.results?.video_url) {
+                  setVideoUrl(jobData.results.video_url);
+                  setVideoLoading(false);
+                  setVideoReady(true);
+                } else if (jobData.results?.output_video) {
+                  // Fallback to old format
                   setVideoUrl(`${API_BASE_URL}${jobData.results.output_video}`);
                   setVideoLoading(false);
                   setVideoReady(true);
                 }
-                if (jobData.results?.output_audio) {
+                if (jobData.results?.audio_url) {
+                  window.generatedAudioUrl = jobData.results.audio_url;
+                } else if (jobData.results?.output_audio) {
+                  // Fallback to old format
                   window.generatedAudioUrl = `${API_BASE_URL}${jobData.results.output_audio}`;
                 }
 
@@ -457,12 +465,20 @@ export default function DigitalTwinsDemoUI() {
         }
         
         // Store video and audio URLs from response if available
-        if (data.output_video) {
+        if (data.video_url) {
+          setVideoUrl(data.video_url);
+          setVideoLoading(false);
+          setVideoReady(true);
+        } else if (data.output_video) {
+          // Fallback to old format
           setVideoUrl(`${API_BASE_URL}${data.output_video}`);
           setVideoLoading(false);
           setVideoReady(true);
-          }
-        if (data.output_audio) {
+        }
+        if (data.audio_url) {
+          window.generatedAudioUrl = data.audio_url;
+        } else if (data.output_audio) {
+          // Fallback to old format
           window.generatedAudioUrl = `${API_BASE_URL}${data.output_audio}`;
         }
       }
@@ -766,16 +782,15 @@ export default function DigitalTwinsDemoUI() {
                             <span className="text-zinc-500">Response:</span> {item.results.hot_take}
                           </div>
                         )}
-                        {item.results.output_video && (
+                        {(item.results.video_url || item.results.output_video) && (
                           <div>
                             <span className="text-zinc-500">Video:</span> 
                             <button
                               onClick={() => {
-                                // Convert download URL to stream URL
-                                const downloadUrl = item.results.output_video;
-                                const filename = downloadUrl.split('/').pop();
-                                const streamUrl = `${API_BASE_URL}/stream/${filename}`;
-                                window.open(streamUrl, '_blank');
+                                // Use S3 URL if available, otherwise fallback to stream endpoint
+                                const videoUrl = item.results.video_url || 
+                                  `${API_BASE_URL}/stream/${item.results.output_video.split('/').pop()}`;
+                                window.open(videoUrl, '_blank');
                               }}
                               className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 ml-1"
                             >
@@ -786,11 +801,11 @@ export default function DigitalTwinsDemoUI() {
                             </button>
                           </div>
                         )}
-                        {item.results.output_audio && (
+                        {(item.results.audio_url || item.results.output_audio) && (
                           <div>
                             <span className="text-zinc-500">Audio:</span> 
                             <a 
-                              href={`${API_BASE_URL}${item.results.output_audio}`}
+                              href={item.results.audio_url || `${API_BASE_URL}${item.results.output_audio}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-400 hover:text-blue-300 ml-1"
