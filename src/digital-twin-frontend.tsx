@@ -255,8 +255,8 @@ export default function DigitalTwinsDemoUI() {
                 const result = jobData.results?.hot_take || "Response generated successfully.";
                 
                 // Store video and audio URLs from response if available
-                if (jobData.results?.video_url) {
-                  setVideoUrl(jobData.results.video_url);
+                if (jobData.results?.video_url || jobData.results?.video_s3_url) {
+                  setVideoUrl(jobData.results.video_url || jobData.results.video_s3_url);
                   setVideoLoading(false);
                   setVideoReady(true);
                 } else if (jobData.results?.output_video) {
@@ -265,8 +265,8 @@ export default function DigitalTwinsDemoUI() {
                   setVideoLoading(false);
                   setVideoReady(true);
                 }
-                if (jobData.results?.audio_url) {
-                  window.generatedAudioUrl = jobData.results.audio_url;
+                if (jobData.results?.audio_url || jobData.results?.audio_s3_url) {
+                  window.generatedAudioUrl = jobData.results.audio_url || jobData.results.audio_s3_url;
                 } else if (jobData.results?.output_audio) {
                   // Fallback to old format
                   window.generatedAudioUrl = `${API_BASE_URL}${jobData.results.output_audio}`;
@@ -782,13 +782,13 @@ export default function DigitalTwinsDemoUI() {
                             <span className="text-zinc-500">Response:</span> {item.results.hot_take}
                           </div>
                         )}
-                        {(item.results.video_url || item.results.output_video) && (
+                        {(item.results.video_url || item.results.video_s3_url || item.results.output_video) && (
                           <div>
                             <span className="text-zinc-500">Video:</span> 
                             <button
                               onClick={() => {
                                 // Use S3 URL if available, otherwise fallback to stream endpoint
-                                const videoUrl = item.results.video_url || 
+                                const videoUrl = item.results.video_url || item.results.video_s3_url || 
                                   `${API_BASE_URL}/stream/${item.results.output_video.split('/').pop()}`;
                                 window.open(videoUrl, '_blank');
                               }}
@@ -801,11 +801,11 @@ export default function DigitalTwinsDemoUI() {
                             </button>
                           </div>
                         )}
-                        {(item.results.audio_url || item.results.output_audio) && (
+                        {(item.results.audio_url || item.results.audio_s3_url || item.results.output_audio) && (
                           <div>
                             <span className="text-zinc-500">Audio:</span> 
                             <a 
-                              href={item.results.audio_url || `${API_BASE_URL}${item.results.output_audio}`}
+                              href={item.results.audio_url || item.results.audio_s3_url || `${API_BASE_URL}${item.results.output_audio}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-400 hover:text-blue-300 ml-1"
