@@ -1,0 +1,36 @@
+# Builds the React app and deploys it to Cloudflare as static assets.
+#
+# Runs on every push to main and on demand.
+#
+# Needs:
+#   repo secrets   CLOUDFLARE_API_TOKEN (Workers Scripts:Edit), CLOUDFLARE_ACCOUNT_ID
+#   repo variable  API_BASE_URL  https://digital-twin-backend.john-67b.workers.dev
+
+name: Cloudflare Deploy
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Build and deploy frontend
+    runs-on: ubuntu-latest
+    concurrency: cloudflare-deploy-group
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Check API_BASE_URL is set
+        run: test -n "${{ vars.API_BASE_URL }}" || { echo "Set the API_BASE_URL repo variable"; exit 1; }
+      - run: npm run build
+        env:
+          # Baked into the bundle at build time.
+          REACT_APP_API_BASE_URL: ${{ vars.API_BASE_URL }}
+      - run: npx --yes wrangler@4 deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

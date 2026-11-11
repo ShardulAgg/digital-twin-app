@@ -1,0 +1,18 @@
+// Cloudflare deployment for the digital-twin React frontend.
+//
+// Static assets only (no Worker script): Cloudflare serves ./build and falls
+// back to index.html for client-side routes.
+//
+// REACT_APP_API_BASE_URL is baked in at BUILD time by Create React App, so it
+// must be set when running `npm run build`, not as a runtime secret:
+//   REACT_APP_API_BASE_URL=https://digital-twin-backend.<subdomain>.workers.dev npm run build
+//   npx wrangler deploy
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "digital-twin-frontend",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./build",
+    "not_found_handling": "single-page-application"
+  }
+}
